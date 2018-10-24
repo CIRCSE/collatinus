@@ -1,0 +1,53 @@
+*COME FAR ANDARE COLLATINUS E COSA CAMBIA NELLA NOSTRA VERSIONE*
+
+- Compilazione
+
+Ufficialmente Collatinus 11 non c'è ancora per Debian/Linux, ma è possibilissimo compilarlo e lanciarlo anche su Ubuntu (grazie Paolo). Bisogna scaricare i seguenti pacchetti così:
+
+	sudo apt-get install qt5-default libqt5svg5*
+
+Poi, nella cartella principale bisogna compilare:
+
+	qmake collatinus.pro
+	make
+
+Possibile che ci siano degli avvertimenti, ma sono innocui. Ripetere la stessa cosa per il client:
+
+	qmake Client_C11.pro
+	make
+
+- Utilizzo da linea di comando
+
+Collatinus ha una funzionalità di tipo shell, ma richiede comunque che sia avviata l'interfaccia grafica e che sia predisposto come server (un lavoro futuro potrebbe essere di togliere questo passaggio).
+
+Dalla cartella collatinus/bin lanciare il programma:
+
+	./collatinus
+
+Selezionare Extra -> Serveur dal menù in alto. Aprire un altro terminale in collatinus/bin e usare:
+
+	./Client_C11
+
+Da lì un modo per lanciare il taggatore (opzione -p) e ottenere un csv con le scelte più probabili per toquen è:
+
+	./Client_C11 -p2 -f ../../Da_taggare.qlcs -o ../../Taggato.qlcsltr
+
+Vedere la documentazione per altri dettagli. 
+
+- Modifiche a src/tagueur.cpp
+
+Il nostro fork usa una versione modificata del taggueur. Il motivo è che Collatinus di base toquénizza anche e, sulla base di una scansione carattere per carattere dell'input come un'unica stringa, individua le frasi come segmenti compresi fra ., ;, !, ?, elimina completamente i numeri e considera qualunque carattere non alfabetico come un separatore di toquen (quindi anche la punteggiatura o caratteri di beta code per il greco, che vengono poi trascurati). Il nostro presupposto è però che il testo sia già toquénizzato e ogni toquen messo su una riga (cioè, usiamo \n come separatore). Il nuovo tagueur si aspetta esattamente questo tipo di testo e si comporta male su altri (cioè, interpreta ogni riga come una singola parola). Rimangono alcuni comportamenti da chiarire, come la ripetizione in output di alcuni toquen con diverse probabilità e interpretazioni.
+
+- Estrazione di una lista di tag
+
+Per comodità, Extrahe_notas_collatini.py è un pitoncino che crea una lista pura e semplice a partire da un csv del tagueur. Dategli come argomenti:
+1> il csv
+2> come volete salvarlo
+
+Exemplum:
+
+	python3 Extrahe_notas_collatini.py Taggato.qlcsltr Tag_collatinus.tsv
+
+Le varianti di uno stesso lemma vengono elencate come lista divisa da virgole. E' comunque molto semplice andare a modificare lo script. 
+
+

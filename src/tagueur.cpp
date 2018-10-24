@@ -242,6 +242,7 @@ QString Tagueur::tagTexte(QString t, int p, bool affTout, bool majPert, bool aff
 //    t = t.simplified(); // Rmq : perd les retours de ligne !
     int tl = t.length() - 1;
     const QString pp = ".;!?";
+	const QString acap = "\n";
     int numMot = 0; // Un numéro pour les mots (utile pour le CSV).
     int numPhr = 0; // Un numéro pour les phrases (utile seulement pour le texte complet)
     int dph = p;
@@ -252,12 +253,12 @@ QString Tagueur::tagTexte(QString t, int p, bool affTout, bool majPert, bool aff
         dph = 0;
         tout = true; // Pour faire tout le texte, phrase par phrase.
     }
-    else
+    else //non dovrebbe importarci se tagghiamo tutto insieme
     {
-        if ((dph > 0) && pp.contains(t.at(dph))) --dph;
+        if ((dph > 0) && (pp.contains(t.at(dph)) && !acap.contains(t.at(dph-1))) )  --dph;
         // Si j'ai cliqué sur une ponctuation, je traite la phrase qui précède.
         // régression au début de la phrase
-        while (dph > 0 && !pp.contains(t.at(dph)) && (t.mid(dph,2) != "\n\n")) --dph;
+        while (dph > 0 && !(pp.contains(t.at(dph)) && !acap.contains(t.at(dph-1))) && (t.mid(dph,2) != "\n\n")) --dph;
         if (dph != 0) dph += 1; // J'élimine la ponctuation de la phrase précédente.
     }
 
@@ -267,36 +268,47 @@ QString Tagueur::tagTexte(QString t, int p, bool affTout, bool majPert, bool aff
     int fph = p;
     while (fph < tl)
     {
-        while (fph < tl && !pp.contains(t.at(fph)) && (t.mid(fph,2) != "\n\n")) ++fph;
-        QString phr = t.mid(dph, fph - dph).trimmed();
+        while (fph < tl && !(pp.contains(t.at(fph)) &&  acap.contains(t.at(fph-1)) ) && (t.mid(fph,2) != "\n\n")) ++fph;
+		//++fph;
+        QString phr = t.mid(dph, fph + 1 - dph).trimmed(); // +1 per includere la punteggiatura finale
         // Si le texte se termine sans ponctuation, je perds le dernier caractère.
 //        qDebug() << tl << fph << t.at(tl);
         if ((fph == tl) && !pp.contains(t.at(tl)) && (t.mid(tl,1) != "\n"))
             phr.append(t[tl]);
         // découpage en mots
-        QStringList lm = phr.split(QRegExp("\\b"));
+        QStringList lm = phr.split(QRegExp("\\n"));
 
-        if (lm.size() > 1)
+		qDebug() << phr;
+		qDebug() << lm;
+
+        if (lm.size() >= 1) //tagliava con > le frasi di una singola parola (possibili?)
         {
             // Il y a au moins un mot...
+			
+			//Questa parte non serve perchè sappiamo sempre qual è la fine di frase, per definizione della nostra tokenizzazione
+			
 //            while (Ch::abrev.contains(lm[lm.size()-2]))
-            while (_lemCore->estAbr(lm[lm.size()-2]))
-            {
-                // Ma phrase se terminait par une abréviation : je continue.
-                fph++;
-                while (fph < tl && !pp.contains(t.at(fph))) ++fph;
-                phr = t.mid(dph, fph - dph).trimmed();
-                if ((fph == tl) && !pp.contains(t.at(tl)) && (t.mid(tl,1) != "\n"))
-                    phr.append(t[tl]);
-                lm = phr.split(QRegExp("\\b"));
-            }
+//			QString lmnd = lm[lm.size()-1]; lmnd.remove(QRegExp("\\W+$"));
+//            while ( _lemCore->estAbr(lm[lm.size()-1]) || _lemCore->estAbr(lmnd) ) //lm.size()-2 perchè usava \b come separatore //visto che manteniamo tutta la punteggiatura mentre Collatinus di base la toglie, dobbiamo cercare abbreviazioni prevedendo che ci siae togliendola per armonizzarci con la lista qua, supponendo che sia presente solo in fondo e non in mezzo
+//            {
+//                // Ma phrase se terminait par une abréviation : je continue.
+//                fph++;
+//                while (fph < tl && !pp.contains(t.at(fph))) ++fph;
+//                phr = t.mid(dph, fph - dph).trimmed();
+//                if ((fph == tl) && !pp.contains(t.at(tl)) && (t.mid(tl,1) != "\n"))
+//                    phr.append(t[tl]);
+//                lm = phr.split(QRegExp("\\n"));
+//            }
 
             QList<Mot*> mots;
             // lemmatisation pour chaque mot
-            for (int i = 1; i < lm.length(); i += 2)
+            for (int i = 0; i < lm.length(); i += 1) //in origine faceva salti di 2 e partiva da 1... perchè?
             {
-                bool debVers = !majPert || lm[i-1].contains("\n");
-                Mot * mot = new Mot(lm[i],(i-1)/2, debVers, _lemCore); // TODO : Vérifier si on a des vers avec majuscule...
+                //bool debVers = !majPert || lm[i-1].contains("\n");
+				//bool debVers = false ;
+                Mot * mot = new Mot(lm[i], i , false, _lemCore); // TODO : Vérifier si on a des vers avec majuscule... 
+				//(i-1)/2 come rang, cioè posizione nella frase passata al taggatore: segmentando con \b le parole da cercare sono solo in posizione dispari e bisogna quindi dimezzare l'indice (vedi anche sopra il +2)
+				//debVers: nella nostra tokenizzazione debVers perde di senso, visto che i==0 corrisponde all'inizio di frase dentro Mot, non usiamo maiuscole e tokenizziamo con \n
                 mots.append(mot);
             }  // fin de boucle de lemmatisation pour chaque mot
             Mot * mot = new Mot("",mots.size(),true, _lemCore); // Fin de phrase
